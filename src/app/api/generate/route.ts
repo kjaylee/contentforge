@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { crawlUrl } from '@/lib/crawler';
-import { generateContent, isGeminiConfigured } from '@/lib/gemini';
+import { generateContent, isOpenAIConfigured } from '@/lib/openai';
 import type { Platform } from '@/types/database';
 
 const VALID_PLATFORMS: Platform[] = ['twitter', 'linkedin', 'instagram', 'facebook', 'threads'];
@@ -36,10 +36,10 @@ function incrementUsage(ip: string): void {
 
 export async function POST(request: NextRequest) {
   try {
-    // Gemini API 키 확인
-    if (!isGeminiConfigured()) {
+    // OpenAI API 키 확인
+    if (!isOpenAIConfigured()) {
       return NextResponse.json(
-        { error: 'Gemini API가 설정되지 않았습니다.' },
+        { error: 'OpenAI API가 설정되지 않았습니다.' },
         { status: 503 }
       );
     }

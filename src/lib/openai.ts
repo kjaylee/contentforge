@@ -1,7 +1,9 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import type { Platform, GenerationOutputs, PlatformOutput } from '@/types/database';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
 
 // 플랫폼별 설정
 const PLATFORM_CONFIG: Record<Platform, {
@@ -98,10 +100,6 @@ export interface GenerateResult {
 export async function generateContent(options: GenerateOptions): Promise<GenerateResult> {
   const { sourceText, sourceTitle, platforms, language = 'ko' } = options;
   const startTime = Date.now();
-  
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-1.5-flash', // 무료 티어에서 사용 가능
-  });
 
   const outputs: GenerationOutputs = {};
   let totalTokens = 0;
@@ -112,12 +110,24 @@ export async function generateContent(options: GenerateOptions): Promise<Generat
       const config = PLATFORM_CONFIG[platform];
       const prompt = buildPrompt(sourceText, sourceTitle, config, language);
       
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: '당신은 소셜 미디어 콘텐츠 전문가입니다. 주어진 가이드라인을 정확히 따라 최적화된 게시물을 작성합니다.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
       
-      // 토큰 사용량 (추정)
-      const tokens = response.usageMetadata?.totalTokenCount || 0;
+      const text = completion.choices[0]?.message?.content || '';
+      const tokens = completion.usage?.total_tokens || 0;
       
       return { platform, text, tokens };
     })
@@ -157,7 +167,6 @@ function buildPrompt(
     : 'Write in English.';
 
   return `
-당신은 소셜 미디어 콘텐츠 전문가입니다. 
 주어진 원본 콘텐츠를 ${config.name} 플랫폼에 최적화된 게시물로 변환해주세요.
 
 ## 원본 콘텐츠
@@ -213,6 +222,6 @@ function parseOutput(text: string, platform: Platform): PlatformOutput {
 /**
  * API 키 유효성 검사
  */
-export function isGeminiConfigured(): boolean {
-  return !!process.env.GEMINI_API_KEY;
+export function isOpenAIConfigured(): boolean {
+  return !!process.env.OPENAI_API_KEY;
 }
